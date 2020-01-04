@@ -1,6 +1,6 @@
 {
   "name": "@nger/webpack",
-  "version": "0.0.5",
+  "version": "0.0.9",
   "description": "> TODO: description",
   "author": "imeepos <admin@meepo.com.cn>",
   "homepage": "https://github.com/meepobrother/nger-webpack#readme",
@@ -31,16 +31,22 @@
     "url": "https://github.com/meepobrother/nger-webpack/issues"
   },
   "dependencies": {
+    "@babel/plugin-proposal-object-rest-spread": "^7.7.7",
+    "@babel/plugin-syntax-dynamic-import": "^7.7.4",
+    "@babel/plugin-transform-arrow-functions": "^7.7.4",
+    "@babel/plugin-transform-runtime": "^7.7.6",
+    "@babel/preset-env": "^7.7.7",
     "@nger/core": "^1.9.28",
+    "babel-loader": "^8.0.6",
+    "colors": "^1.4.0",
     "commander": "^4.0.1",
-    "json-loader": "^0.5.7",
+    "fs-extra": "^8.1.0",
     "graphql-import-loader": "^0.2.1",
+    "json-loader": "^0.5.7",
     "rmdir": "^1.2.0",
     "ts-loader": "^6.2.1",
-    "webpack": "^4.41.5",
-    "fs-extra": "^8.1.0",
-    "colors": "^1.4.0",
-    "typescript": "^3.7.4"
+    "typescript": "^3.7.4",
+    "webpack": "^4.41.5"
   },
   "devDependencies": {
     "@types/commander": "^2.12.2",

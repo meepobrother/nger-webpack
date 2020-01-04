@@ -55,17 +55,36 @@ if ((module as any).hot) {
         }
         this.options.module = {
             rules: [{
+                test: /\.m?js$/,
+                exclude: /(node_modules|bower_components)/,
+                use: {
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['@babel/preset-env'],
+                        plugins: [
+                            '@babel/plugin-transform-runtime',
+                            '@babel/plugin-syntax-dynamic-import',
+                            '@babel/plugin-proposal-object-rest-spread',
+                            '@babel/plugin-transform-arrow-functions'
+                        ]
+                    }
+                }
+            }, {
                 test: /\.js$/,
-                exclude: /node_modules/,
                 use: [{
                     loader: 'babel-loader',
                     options: {
-                        presets: ['es2015', 'stage-3'] //兼容es6，并添加.babelrc
+                        presets: ['@babel/preset-env'],
+                        plugins: [
+                            '@babel/plugin-transform-runtime',
+                            '@babel/plugin-syntax-dynamic-import',
+                            '@babel/plugin-proposal-object-rest-spread',
+                            '@babel/plugin-transform-arrow-functions'
+                        ]
                     }
                 }]
             }, {
                 test: /\.tsx?$/,
-                exclude: /node_modules/,
                 use: [{
                     loader: 'ts-loader', options: {
                         transpileOnly: true
@@ -163,4 +182,3 @@ if ((module as any).hot) {
         return nodeModules;
     }
 }
-
