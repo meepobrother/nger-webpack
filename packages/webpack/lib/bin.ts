@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { corePlatform, MAIN_PATH } from '@nger/core';
+import { corePlatform, MAIN_PATH, setDevMode } from '@nger/core';
 import { WebpackModule } from '../lib/webpack.module';
 import { WebpackService } from '../lib/webpack.service';
 import { join } from 'path';
@@ -13,6 +13,7 @@ program
     .description(`build a project`)
     .option('-w, --watch', 'watch the file change')
     .action((source, command) => {
+        setDevMode(!!command.watch)
         corePlatform([{
             provide: MAIN_PATH,
             useValue: join(root, source || 'main.ts')

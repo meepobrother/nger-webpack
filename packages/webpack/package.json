@@ -1,11 +1,12 @@
 {
   "name": "@nger/webpack",
-  "version": "0.0.0",
+  "version": "0.0.4",
   "description": "> TODO: description",
   "author": "imeepos <admin@meepo.com.cn>",
   "homepage": "https://github.com/meepobrother/nger-webpack#readme",
   "license": "ISC",
-  "main": "lib/webpack.js",
+  "main": "lib/index.js",
+  "types": "lib/inex.d.ts",
   "bin": {
     "nger": "lib/bin.js"
   },
@@ -17,7 +18,7 @@
     "lib"
   ],
   "publishConfig": {
-    "registry": "https://registry.npmjs.org"
+    "access": "public"
   },
   "repository": {
     "type": "git",

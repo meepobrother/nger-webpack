@@ -3,13 +3,15 @@ import webpack, { Configuration, Compiler, Stats, WatchOptions, HotModuleReplace
 import { dirname, join, relative } from 'path'
 export const WEBPACK_CONFIGURATION = new InjectionToken<Configuration>(`WEBPACK_CONFIGURATION`)
 export const WEBPACK_WATCHOPTIONS = new InjectionToken<WatchOptions>(`WEBPACK_WATCHOPTIONS`)
-import { readdirSync, ensureDirSync, writeFileSync } from 'fs-extra';
+import { readdirSync, ensureDirSync, writeFileSync, existsSync } from 'fs-extra';
 const rmdir = require('rmdir');
+import { exec, ExecException } from 'child_process'
 @Injectable()
 export class WebpackService {
     compiler: Compiler;
     options: Configuration;
     watchOptions: WatchOptions;
+    dist: string;
     constructor(private injector: Injector) {
         this.options = this.injector.get(WEBPACK_CONFIGURATION, {})
         this.watchOptions = this.injector.get(WEBPACK_WATCHOPTIONS, {})
@@ -26,10 +28,14 @@ if ((module as any).hot) {
         require('${hotFile}');
     });
 }`)
-        this.options.entry = [
-            'webpack/hot/poll?1000',
-            tempMain
-        ];
+        const entry = [];
+        if (isDevMode()) {
+            entry.push(`webpack/hot/poll?1000`)
+            entry.push(tempMain)
+        } else {
+            entry.push(mainFile)
+        }
+        this.options.entry = entry;
         this.options.devtool = isDevMode() ? 'source-map' : false;
         this.options.target = this.options.target || 'node';
         this.options.node = {
@@ -43,7 +49,6 @@ if ((module as any).hot) {
         }
         this.options.stats = this.options.stats || 'errors-warnings';
         this.options.name = this.injector.get<string>(PLATFORM_NAME)
-        rmdir(dist);
         this.options.output = {
             path: dist,
             filename: `bin.js`
@@ -51,33 +56,61 @@ if ((module as any).hot) {
         this.options.module = {
             rules: [{
                 test: /\.tsx?$/,
-                use: 'ts-loader',
-                exclude: /node_modules/,
+                use: 'ts-loader'
             }, {
                 test: /\.json$/,
                 loader: 'json-loader'
             }]
         }
-        this.options.plugins = [
-            new HotModuleReplacementPlugin()
-        ];
+        this.options.plugins = [];
+        if (isDevMode()) {
+            this.options.plugins.push(
+                new HotModuleReplacementPlugin()
+            )
+        }
         this.options.resolve = {
             extensions: ['.ts', '.js', '.json']
         }
-        // this.options.externals = this.getExternals();
+        this.options.externals = isDevMode() ? this.getExternals() : [];
         this.compiler = webpack(this.options)
+        this.dist = dist;
     }
 
     run() {
-        this.compiler.run((err: Error, stats: Stats) => {
-            this.handler(err, stats)
+        rmdir(this.dist, () => {
+            this.compiler.run((err: Error, stats: Stats) => {
+                this.handler(err, stats)
+            });
         });
     }
 
     watch() {
-        this.compiler.watch(this.watchOptions, (err: Error, stats: Stats) => {
-            this.handler(err, stats)
+        rmdir(this.dist, () => {
+            this.compiler.watch(this.watchOptions, (err: Error, stats: Stats) => {
+                this.handler(err, stats)
+                this.start();
+            });
+        })
+    }
+
+    started: boolean = false;
+    start() {
+        if (this.started) return;
+        this.started = true;
+        const execPath = relative(process.cwd(), join(this.dist, 'bin.js'));
+        const child = exec(`node ${execPath}`, {
+            cwd: process.cwd()
+        }, (error: ExecException | null, stdout: string, stderr: string) => {
+            if (error) console.error(error);
+            if (stdout) console.info(stdout)
+            if (stderr) console.error(stderr)
         });
+        child.on('message', () => { })
+        if (child.stdout) {
+            child.stdout.on('data', (chunk) => {
+                console.log(chunk)
+            })
+        }
     }
 
     private handler(err: Error, stats: Stats) {
@@ -92,12 +125,18 @@ if ((module as any).hot) {
                 console.warn(wa, '\n')
             })
         }
-        console.info(`build success`)
+    }
+
+    private getNodeModulesPath(dir: string = process.cwd()): string {
+        if (existsSync(join(dir, 'node_modules'))) {
+            return dir;
+        }
+        return this.getNodeModulesPath(join(dir, '..'))
     }
 
     private getExternals() {
         const nodeModules = {};
-        readdirSync('node_modules')
+        readdirSync(this.getNodeModulesPath())
             .filter((x) => {
                 return ['.bin'].indexOf(x) === -1;
             })
