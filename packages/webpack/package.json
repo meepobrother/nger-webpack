@@ -1,6 +1,6 @@
 {
   "name": "@nger/webpack",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "> TODO: description",
   "author": "imeepos <admin@meepo.com.cn>",
   "homepage": "https://github.com/meepobrother/nger-webpack#readme",
@@ -34,6 +34,7 @@
     "@nger/core": "^1.9.28",
     "commander": "^4.0.1",
     "json-loader": "^0.5.7",
+    "graphql-import-loader": "^0.2.1",
     "rmdir": "^1.2.0",
     "ts-loader": "^6.2.1",
     "webpack": "^4.41.5",

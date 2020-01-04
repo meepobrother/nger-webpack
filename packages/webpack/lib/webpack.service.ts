@@ -55,11 +55,28 @@ if ((module as any).hot) {
         }
         this.options.module = {
             rules: [{
+                test: /\.js$/,
+                exclude: /node_modules/,
+                use: [{
+                    loader: 'babel-loader',
+                    options: {
+                        presets: ['es2015', 'stage-3'] //兼容es6，并添加.babelrc
+                    }
+                }]
+            }, {
                 test: /\.tsx?$/,
-                use: 'ts-loader'
+                exclude: /node_modules/,
+                use: [{
+                    loader: 'ts-loader', options: {
+                        transpileOnly: true
+                    }
+                }]
             }, {
                 test: /\.json$/,
                 loader: 'json-loader'
+            }, {
+                test: /\.graphql$/,
+                use: [{ loader: 'graphql-import-loader' }]
             }]
         }
         this.options.plugins = [];
