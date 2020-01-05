@@ -1,6 +1,13 @@
 import { Injectable, isDevMode, InjectionToken, Injector, MAIN_PATH, PLATFORM_NAME } from '@nger/core'
-import webpack, { Configuration, Compiler, Stats, WatchOptions, HotModuleReplacementPlugin } from 'webpack';
+import webpack, {
+    Configuration, Compiler, Stats,
+    WatchOptions, HotModuleReplacementPlugin,
+    DefinePlugin, ProgressPlugin, WatchIgnorePlugin
+} from 'webpack';
+import { BundleAnalyzerPlugin } from 'webpack-bundle-analyzer';
+import Dotenv from 'dotenv-webpack'
 import { dirname, join, relative } from 'path'
+const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 export const WEBPACK_CONFIGURATION = new InjectionToken<Configuration>(`WEBPACK_CONFIGURATION`)
 export const WEBPACK_WATCHOPTIONS = new InjectionToken<WatchOptions>(`WEBPACK_WATCHOPTIONS`)
 import { readdirSync, ensureDirSync, writeFileSync, existsSync } from 'fs-extra';
@@ -11,18 +18,21 @@ export class WebpackService {
     compiler: Compiler;
     options: Configuration;
     watchOptions: WatchOptions;
+    root: string;
     dist: string;
     constructor(private injector: Injector) {
         this.options = this.injector.get(WEBPACK_CONFIGURATION, {})
         this.watchOptions = this.injector.get(WEBPACK_WATCHOPTIONS, {})
         this.options.mode = isDevMode() ? 'development' : 'production';
         const mainFile = this.injector.get<string>(MAIN_PATH);
-        const dist = join(dirname(mainFile), '../publish')
+        const dist = join(dirname(mainFile), '.publish')
+        this.root = dirname(dist);
         const temp = join(dirname(mainFile), '.temp');
         ensureDirSync(temp)
         const tempMain = join(temp, 'main.ts');
         const hotFile = relative(temp, mainFile).replace('.ts', '')
-        writeFileSync(join(temp, 'main.ts'), `require('${hotFile}');
+        writeFileSync(join(temp, 'main.ts'), `
+require('${hotFile}');
 if ((module as any).hot) {
     (module as any).hot.accept('${hotFile}', () => {
         require('${hotFile}');
@@ -31,8 +41,10 @@ if ((module as any).hot) {
         const entry = [];
         if (isDevMode()) {
             entry.push(`webpack/hot/poll?1000`)
+            entry.push(`@babel/polyfill`)
             entry.push(tempMain)
         } else {
+            entry.push(`@babel/polyfill`)
             entry.push(mainFile)
         }
         this.options.entry = entry;
@@ -51,26 +63,80 @@ if ((module as any).hot) {
         this.options.name = this.injector.get<string>(PLATFORM_NAME)
         this.options.output = {
             path: dist,
-            filename: `bin.js`
+            filename: `bin.js`,
+            chunkFilename: `[name].bundle.js`,
+            publicPath: 'assets'
         }
         this.options.module = {
             rules: [{
+                test: /\.txt$/i,
+                use: 'raw-loader',
+            }, {
+                test: /\.less$/,
+                use: [
+                    {
+                        loader: 'style-loader', // creates style nodes from JS strings
+                    },
+                    {
+                        loader: 'css-loader', // translates CSS into CommonJS
+                    },
+                    {
+                        loader: 'less-loader', // compiles Less to CSS
+                        options: {
+                            strictMath: true,
+                            noIeCompat: true,
+                        },
+                    },
+                ],
+            }, {
+                test: /\.json5$/,
+                use: 'json5-loader',
+                type: 'javascript/auto'
+            }, {
+                test: /\.gz$/,
+                enforce: 'pre',
+                use: 'gzip-loader'
+            }, {
+                test: /\.(html)$/,
+                use: {
+                    loader: 'html-loader',
+                    options: {
+                        attrs: [':data-src'],
+                        minimize: {
+                            removeComments: false,
+                            collapseWhitespace: false,
+                        }
+                    }
+                }
+            },
+            { test: /\.jpg$/, use: ["file-loader"] },
+            { test: /\.png$/, use: ["url-loader?mimetype=image/png"] },
+            {
                 test: /\.m?js$/,
                 exclude: /(node_modules|bower_components)/,
                 use: {
                     loader: 'babel-loader',
                     options: {
-                        presets: ['@babel/preset-env'],
+                        presets: ['@babel/preset-env', {
+                            "targets": {
+                                "node": "current"
+                            }
+                        }],
                         plugins: [
                             '@babel/plugin-transform-runtime',
                             '@babel/plugin-syntax-dynamic-import',
                             '@babel/plugin-proposal-object-rest-spread',
-                            '@babel/plugin-transform-arrow-functions'
+                            '@babel/plugin-transform-arrow-functions',
+                            '@babel/plugin-transform-modules-commonjs',
+                            "@babel/plugin-transform-async-to-generator",
+                            '@babel/plugin-proposal-async-generator-functions',
+                            '@babel/plugin-proposal-export-default-from'
                         ]
                     }
                 }
             }, {
                 test: /\.js$/,
+                exclude: /(node_modules|bower_components)/,
                 use: [{
                     loader: 'babel-loader',
                     options: {
@@ -79,7 +145,11 @@ if ((module as any).hot) {
                             '@babel/plugin-transform-runtime',
                             '@babel/plugin-syntax-dynamic-import',
                             '@babel/plugin-proposal-object-rest-spread',
-                            '@babel/plugin-transform-arrow-functions'
+                            '@babel/plugin-transform-arrow-functions',
+                            '@babel/plugin-transform-modules-commonjs',
+                            "@babel/plugin-transform-async-to-generator",
+                            '@babel/plugin-proposal-async-generator-functions',
+                            '@babel/plugin-proposal-export-default-from'
                         ]
                     }
                 }]
@@ -96,6 +166,15 @@ if ((module as any).hot) {
             }, {
                 test: /\.graphql$/,
                 use: [{ loader: 'graphql-import-loader' }]
+            }, {
+                test: /\.node$/,
+                use: 'node-loader'
+            }, {
+                test: /\.worker\.js$/,
+                use: { loader: 'worker-loader' }
+            }, {
+                test: /\.md$/,
+                use: ['json-loader', 'yaml-frontmatter-loader']
             }]
         }
         this.options.plugins = [];
@@ -103,11 +182,35 @@ if ((module as any).hot) {
             this.options.plugins.push(
                 new HotModuleReplacementPlugin()
             )
+            this.options.plugins.push(
+                new BundleAnalyzerPlugin()
+            )
         }
+        this.options.plugins.push(
+            new DefinePlugin({})
+        )
+        this.options.plugins.push(
+            new Dotenv({
+                path: getFile(this.root, '.env')
+            })
+        )
+        this.options.plugins.push(
+            new ProgressPlugin()
+        )
+        this.options.plugins.push(
+            new WatchIgnorePlugin([/\.js$/, /\.d\.ts$/])
+        )
+        this.options.optimization = {}
+        const configFile = getFile(this.root, 'tsconfig.json')
         this.options.resolve = {
-            extensions: ['.ts', '.js', '.json']
+            extensions: ['.ts', '.mjs', '.js', '.json'],
+            plugins: [
+                new TsconfigPathsPlugin({
+                    configFile
+                })
+            ]
         }
-        this.options.externals = isDevMode() ? this.getExternals() : [];
+        this.options.externals = [];
         this.compiler = webpack(this.options)
         this.dist = dist;
     }
@@ -162,23 +265,14 @@ if ((module as any).hot) {
             })
         }
     }
+}
 
-    private getNodeModulesPath(dir: string = process.cwd()): string {
-        if (existsSync(join(dir, 'node_modules'))) {
-            return dir;
-        }
-        return this.getNodeModulesPath(join(dir, '..'))
-    }
 
-    private getExternals() {
-        const nodeModules = {};
-        readdirSync(this.getNodeModulesPath())
-            .filter((x) => {
-                return ['.bin'].indexOf(x) === -1;
-            })
-            .forEach((mod) => {
-                Reflect.set(nodeModules, mod, 'commonjs ${mod}')
-            });
-        return nodeModules;
+function getFile(dir: string, name: string): string {
+    const dist = join(dir, name)
+    const pkg = join(dir, 'package.json')
+    if (existsSync(dist) || existsSync(pkg)) {
+        return dist;
     }
+    return getFile(join(dir, '..'), name)
 }
