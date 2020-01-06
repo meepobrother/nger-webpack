@@ -185,9 +185,6 @@ if ((module as any).hot) {
         if (this.started) return;
         this.started = true;
         const execPath = relative(process.cwd(), join(this.dist, 'bin.js'));
-        console.log({
-            execPath
-        })
         const child = exec(`node ${execPath}`, {
             cwd: process.cwd()
         }, (error: ExecException | null, stdout: string, stderr: string) => {

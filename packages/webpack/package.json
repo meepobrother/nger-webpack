@@ -1,12 +1,12 @@
 {
   "name": "@nger/webpack",
-  "version": "0.0.18",
+  "version": "0.0.20",
   "description": "> TODO: description",
   "author": "imeepos <admin@meepo.com.cn>",
   "homepage": "https://github.com/meepobrother/nger-webpack#readme",
   "license": "ISC",
   "main": "lib/index.js",
-  "types": "lib/inex.d.ts",
+  "types": "lib/index.d.ts",
   "bin": {
     "nger": "lib/bin.js"
   },
