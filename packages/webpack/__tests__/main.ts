@@ -12,4 +12,5 @@ corePlatform([{
 }]).bootstrapModule(AppModule).then(res => {
     const demo = res.get(Demo)
     demo.log();
+    console.log(`app module `)
 });

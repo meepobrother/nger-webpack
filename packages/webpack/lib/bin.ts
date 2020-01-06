@@ -26,15 +26,10 @@ program
             }
         })
     });
-
-
 program.parse(process.argv);
-
-
 if (!process.argv.slice(2).length) {
     program.outputHelp(make_red);
 }
-
 function make_red(txt: string) {
     return colors.red(txt); //display the help text in red on the console
 }

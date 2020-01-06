@@ -57,125 +57,66 @@ if ((module as any).hot) {
             __dirname: true,
             __filename: true,
             Buffer: true,
-            setImmediate: true
+            setImmediate: true,
+            fs: true
         }
         this.options.stats = this.options.stats || 'errors-warnings';
         this.options.name = this.injector.get<string>(PLATFORM_NAME)
         this.options.output = {
             path: dist,
             filename: `bin.js`,
-            chunkFilename: `[name].bundle.js`,
-            publicPath: 'assets'
+            chunkFilename: `[name].chunk.js`,
+            libraryTarget: 'commonjs2',
         }
+        // this.options.cache = {
+        //     type: 'filesystem'
+        // }
         this.options.module = {
-            rules: [{
-                test: /\.txt$/i,
-                use: 'raw-loader',
-            }, {
-                test: /\.less$/,
-                use: [
-                    {
-                        loader: 'style-loader', // creates style nodes from JS strings
-                    },
-                    {
-                        loader: 'css-loader', // translates CSS into CommonJS
-                    },
-                    {
-                        loader: 'less-loader', // compiles Less to CSS
+            rules: [
+                {
+                    test: /\.(txt|md|loc|png|jpg|jpeg|svg|gif|xml)$/,
+                    use: [{
+                        loader: 'file-loader',
                         options: {
-                            strictMath: true,
-                            noIeCompat: true,
-                        },
-                    },
-                ],
-            }, {
-                test: /\.json5$/,
-                use: 'json5-loader',
-                type: 'javascript/auto'
-            }, {
-                test: /\.gz$/,
-                enforce: 'pre',
-                use: 'gzip-loader'
-            }, {
-                test: /\.(html)$/,
-                use: {
-                    loader: 'html-loader',
-                    options: {
-                        attrs: [':data-src'],
-                        minimize: {
-                            removeComments: false,
-                            collapseWhitespace: false,
+                            name: `assets/[name].[ext]`,
+                        }
+                    }]
+                },
+                {
+                    test: /\.m?js$/,
+                    exclude: /(node_modules|bower_components)/,
+                    use: {
+                        loader: 'babel-loader',
+                        options: {
+                            presets: ['@babel/preset-env', {
+                                "targets": {
+                                    "node": "current"
+                                }
+                            }],
+                            plugins: [
+                                '@babel/plugin-transform-runtime',
+                                '@babel/plugin-syntax-dynamic-import',
+                                '@babel/plugin-proposal-object-rest-spread',
+                                '@babel/plugin-transform-arrow-functions',
+                                '@babel/plugin-transform-modules-commonjs',
+                                "@babel/plugin-transform-async-to-generator",
+                                '@babel/plugin-proposal-async-generator-functions',
+                                '@babel/plugin-proposal-export-default-from'
+                            ]
                         }
                     }
-                }
-            },
-            { test: /\.jpg$/, use: ["file-loader"] },
-            { test: /\.png$/, use: ["url-loader?mimetype=image/png"] },
-            {
-                test: /\.m?js$/,
-                exclude: /(node_modules|bower_components)/,
-                use: {
-                    loader: 'babel-loader',
-                    options: {
-                        presets: ['@babel/preset-env', {
-                            "targets": {
-                                "node": "current"
-                            }
-                        }],
-                        plugins: [
-                            '@babel/plugin-transform-runtime',
-                            '@babel/plugin-syntax-dynamic-import',
-                            '@babel/plugin-proposal-object-rest-spread',
-                            '@babel/plugin-transform-arrow-functions',
-                            '@babel/plugin-transform-modules-commonjs',
-                            "@babel/plugin-transform-async-to-generator",
-                            '@babel/plugin-proposal-async-generator-functions',
-                            '@babel/plugin-proposal-export-default-from'
-                        ]
-                    }
-                }
-            }, {
-                test: /\.js$/,
-                exclude: /(node_modules|bower_components)/,
-                use: [{
-                    loader: 'babel-loader',
-                    options: {
-                        presets: ['@babel/preset-env'],
-                        plugins: [
-                            '@babel/plugin-transform-runtime',
-                            '@babel/plugin-syntax-dynamic-import',
-                            '@babel/plugin-proposal-object-rest-spread',
-                            '@babel/plugin-transform-arrow-functions',
-                            '@babel/plugin-transform-modules-commonjs',
-                            "@babel/plugin-transform-async-to-generator",
-                            '@babel/plugin-proposal-async-generator-functions',
-                            '@babel/plugin-proposal-export-default-from'
-                        ]
-                    }
+                }, {
+                    test: /\.tsx?$/,
+                    use: [{
+                        loader: 'ts-loader',
+                        options: {
+                            transpileOnly: true
+                        }
+                    }]
+                }, {
+                    test: /\.node$/,
+                    use: 'node-loader'
                 }]
-            }, {
-                test: /\.tsx?$/,
-                use: [{
-                    loader: 'ts-loader', options: {
-                        transpileOnly: true
-                    }
-                }]
-            }, {
-                test: /\.json$/,
-                loader: 'json-loader'
-            }, {
-                test: /\.graphql$/,
-                use: [{ loader: 'graphql-import-loader' }]
-            }, {
-                test: /\.node$/,
-                use: 'node-loader'
-            }, {
-                test: /\.worker\.js$/,
-                use: { loader: 'worker-loader' }
-            }, {
-                test: /\.md$/,
-                use: ['json-loader', 'yaml-frontmatter-loader']
-            }]
         }
         this.options.plugins = [];
         if (isDevMode()) {
@@ -200,10 +141,17 @@ if ((module as any).hot) {
         this.options.plugins.push(
             new WatchIgnorePlugin([/\.js$/, /\.d\.ts$/])
         )
-        this.options.optimization = {}
+        this.options.optimization = {
+            noEmitOnErrors: true,
+            nodeEnv: false,
+            minimize: false,
+            moduleIds: 'hashed',
+            chunkIds: 'named'
+        }
         const configFile = getFile(this.root, 'tsconfig.json')
         this.options.resolve = {
-            extensions: ['.ts', '.mjs', '.js', '.json'],
+            extensions: ['.js', '.json', '.node', '.mjs', '.ts', '.tsx'],
+            mainFields: ["main"],
             plugins: [
                 new TsconfigPathsPlugin({
                     configFile
@@ -237,6 +185,9 @@ if ((module as any).hot) {
         if (this.started) return;
         this.started = true;
         const execPath = relative(process.cwd(), join(this.dist, 'bin.js'));
+        console.log({
+            execPath
+        })
         const child = exec(`node ${execPath}`, {
             cwd: process.cwd()
         }, (error: ExecException | null, stdout: string, stderr: string) => {
